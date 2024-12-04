@@ -100,13 +100,14 @@ int main(int argc, char *argv[]){
         return EXIT_FAILURE;
     }
     struct Superblock superblock;
-    fseek(image_file, 1024, SEEK_SET); //1024 is location of superblock
+    fseek(image_file, SUPERBLOCK_ADDR, SEEK_SET);
     fread(&superblock, sizeof(superblock), 1, image_file);
     // printf(superblock.magic);
-    if (superblock.magic != 0x4D5A){
+    if (superblock.magic != MINIX_MAGIC){
         printf("Invalid superblock magic number");
         return EXIT_FAILURE;
     }
+    
     printf("valid");
     
 
