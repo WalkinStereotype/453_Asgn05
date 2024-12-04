@@ -2,6 +2,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <stdint.h>
+
+#include "dirHelp.h"
+#include "inode.h"
+#include "parTable.h"
+#include "superblock.h"
 
 
 int isValidPartition(char *num){
