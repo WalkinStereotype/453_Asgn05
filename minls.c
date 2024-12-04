@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include "dirHelp.h"
 #include "inode.h"
@@ -70,7 +71,12 @@ int main(int argc, char *argv[]){
             dest = argv[optind++];
         }
     } else {
-        printf("Error: no image given\n");
+        printf("usage: minls [ -v ] [ -p num [ -s num ] ] imagefile [path ]\n"
+                "Options:\n"
+                "-p part --- select partition for filesystem (default: none)\n"
+                "-s sub --- select subpartition for filesystem (default: none)\n"
+                "-h help --- print usage information and exit\n"
+                "-v verbose --- increase verbosity level\n");
         return EXIT_FAILURE;
     }
 
@@ -85,13 +91,24 @@ int main(int argc, char *argv[]){
     printf("P argument: %d\n", partition);
     printf("S argument: %d\n", subpartition);
     printf("Image: %s\n", image);
-    if (dest) {
-        printf("Destination: %s\n", dest);
-    } else {
-        printf("Destination: (none)\n");
-    }
 
-    // Your processing logic here...
+    // processing logic here
+    FILE *image_file = fopen(image, "rb");
+    if (!image_file){
+        perror("Invalid file\n");
+        printf("Error code: %d\n", errno);
+        return EXIT_FAILURE;
+    }
+    struct Superblock superblock;
+    fseek(image_file, 1024, SEEK_SET); //1024 is location of superblock
+    fread(&superblock, sizeof(superblock), 1, image_file);
+    // printf(superblock.magic);
+    if (superblock.magic != 0x4D5A){
+        printf("Invalid superblock magic number");
+        return EXIT_FAILURE;
+    }
+    printf("valid");
+    
 
     return EXIT_SUCCESS;
 }
