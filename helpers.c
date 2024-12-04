@@ -110,11 +110,11 @@ void printFileDetails(
     
     unsigned char *perms = 
         (unsigned char *) malloc(
-                        sizeof(unsigned char) * FILE_MAX_CHARS
+                        sizeof(unsigned char) * LEN_PERMS_LIST
                         );
     
     modeToPerms(perms, mode);
-
+  
     printf("%s %*d %s\n", perms, SIZE_MAX_DIGITS, size, name);
 
     free(perms);
@@ -191,6 +191,3 @@ void printVerboseDetails(Superblock sb, Inode inode){
 
 //     printFileDetails(mode, 12341, name);
 // }
-
-
-

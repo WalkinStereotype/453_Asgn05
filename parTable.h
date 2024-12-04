@@ -6,7 +6,7 @@
 
 /* CONSTANTS */
 #define TABLE_ADDR 0x1BE
-#define ENT_SIZE 16
+#define TABLE_SIZE 16
 #define BOOTABLE_MAGIC_NUM 0x80
 #define MINIX_MAGIC_NUM 0x81
 
