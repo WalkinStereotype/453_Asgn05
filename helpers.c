@@ -3,25 +3,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <stdint.h>
-
-/* Constants (masks switched to hex) */
-#define FILE_TYPE_MASK 0xF000
-#define REG_FILE 0x8000
-#define DIR_FILE 0x4000
-#define U_READ 0x0100 
-#define U_WRITE 0x0080 
-#define U_EXEC 0x0040 
-#define G_READ 0x0020 
-#define G_WRITE 0x0010 
-#define G_EXEC 0x0008 
-#define O_READ 0x0004 
-#define O_WRITE 0x0002 
-#define O_EXEC 0x0001 
-
-
-#define LEN_PERMS_LIST 11 /* dir? + 9 perms + null */
-#define INODE_MAX_DIGITS 9
-#define FILE_MAX_CHARS 60
+#include "helpers.h"
 
 /*
 uint16_t octToDec(uint16_t oct) {
@@ -98,30 +80,15 @@ Format file fields
 */
 void printFileDetails(
             uint16_t mode, 
-            uint32_t inode, 
+            uint32_t size, 
             unsigned char name[]){
     
     unsigned char *perms = 
         (unsigned char *) malloc(
-                        sizeof(unsigned char) * FILE_MAX_CHARS
+                        sizeof(unsigned char) * LEN_PERMS_LIST
                         );
     
     modeToPerms(perms, mode);
-
-    printf("%s %*d %s\n", perms, INODE_MAX_DIGITS, mode, name);
-
+    printf("%s %*d %s\n", perms, INODE_MAX_DIGITS, size, name);
+    free(perms);
 }
-
-int main(int argc, char *argv[]){
-    uint16_t mode = 
-        DIR_FILE | U_READ | U_WRITE 
-        | U_EXEC | G_READ | G_WRITE 
-        | G_EXEC | O_READ | O_WRITE | O_EXEC;
-    
-    unsigned char name[] = "Hello. world";
-
-    printFileDetails(mode, 12341, name);
-}
-
-
-

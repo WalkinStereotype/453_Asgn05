@@ -3,8 +3,8 @@ CFLAGS = -Wall -Wextra -g
 
 all: minls minget
 
-minls: minls.c 
-	$(CC) $(CFLAGS) -o minls minls.c 
+minls: minls.c helpers.c
+	$(CC) $(CFLAGS) -o minls minls.c helpers.c
 
 minget: minget.c 
 	$(CC) $(CFLAGS) -o minget minget.c 
