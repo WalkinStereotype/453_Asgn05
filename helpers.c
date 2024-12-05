@@ -181,6 +181,136 @@ void printVerboseDetails(Superblock sb, Inode inode){
     free(time);
 }
 
+
+void readFile(
+        FILE *fs, 
+        Inode inode, 
+        uint32_t zonesize,
+        uint32_t blocksize, 
+        uint32_t firstZoneAddr
+    ){
+    
+    /* buffer for reading by zone */
+    unsigned char *buffer = (unsigned char *) malloc(zonesize);
+
+    /* amount of size left to read */
+    uint32_t sizeLeftToRead = inode.size;
+
+    /* amount just read */
+    size_t sizeRead = -1;
+
+    /* number of zone numbers per indirect block */
+    uint32_t zonesPerBlock = zonesize / sizeof(uint32_t);
+
+    /* iterator */
+    int i;
+
+    /* Read each direct zone */
+    for(i = 0; i < DIRECT_ZONES; i++){
+
+        /* Break if done */
+        if(sizeLeftToRead <= 0){
+            break;
+        }
+        /* Skip zone if hole */
+        if(inode.zone[i] == 0){
+            continue;
+        }
+
+        /* Seek to position and read into buffer */
+        fseek(
+                fs, 
+                firstZoneAddr + (inode.zone[i] * zonesize), 
+                SEEK_SET
+            );
+        fread(&buffer, zonesize, 1, fs);
+
+        /* set sizeRead depending on what is less */
+        if (sizeLeftToRead < zonesize){
+            sizeRead = sizeLeftToRead;
+        } else {
+            sizeRead = zonesize;
+        }
+
+        /* Write from buffer */
+        fwrite(buffer, 1, sizeRead, stdout);
+
+        /* Update size left */
+        sizeLeftToRead -= sizeRead;
+    }
+
+    /* For indirect block */
+    if (sizeLeftToRead && inode.indirect){
+        /* Malloc indirect block */
+        uint32_t *indirectBlock = (uint32_t *) malloc(blocksize);
+
+        /* Obtain and read zone numbers from indirect block */
+        fseek(
+                fs, 
+                firstZoneAddr + (inode.indirect * zonesize), 
+                SEEK_SET
+            );
+        
+        fread(indirectBlock, zonesize, 1, fs);
+
+        /* iterate through every zone in indirect */
+        for(i = 0; i < zonesPerBlock; i++){
+            uint32_t currZone = indirectBlock[i];
+
+            /* Break if done */
+            if(sizeLeftToRead <= 0){
+                break;
+            }
+            /* Skip zone if hole */
+            if(inode.zone[i] == 0){
+                continue;
+            }
+
+            /* Seek to position and read into buffer */
+            fseek(
+                    fs, 
+                    firstZoneAddr + (currZone * zonesize), 
+                    SEEK_SET
+                );
+            fread(&buffer, zonesize, 1, fs);
+
+            /* set sizeRead depending on what is less */
+            if (sizeLeftToRead < zonesize){
+                sizeRead = sizeLeftToRead;
+            } else {
+                sizeRead = zonesize;
+            }
+
+            /* Write from buffer */
+            fwrite(buffer, 1, sizeRead, stdout);
+
+            /* Update size left */
+            sizeLeftToRead -= sizeRead;
+        }
+
+        free(indirectBlock);
+
+    }
+
+    // /* For two_indirect block */
+    // if (sizeLeftToRead && inode.two_indirect){
+    //     /* Malloc for twoIndirect and Direct */
+    //     uint32_t *twoIndirectBlock = (uint32_t *) malloc(blocksize);
+    //     uint32_t *indirectBlock = (uint32_t *) malloc(blocksize);
+
+    //     /* Obtain and read zone numbers from indirect block */
+    //     fseek(
+    //             fs, 
+    //             firstZoneAddr + (inode.indirect * zonesize), 
+    //             SEEK_SET
+    //         );
+        
+    //     fread(indirectBlock, zonesize, 1, fs);
+    // }
+
+    free(buffer);
+}
+
 // int main(int argc, char *argv[]){
 //     uint16_t mode = 
 //         DIR_FILE | U_READ | U_WRITE 
