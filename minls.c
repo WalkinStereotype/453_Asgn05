@@ -35,23 +35,31 @@ int get_start(FILE *image_file, int partition, int subpartition){
         return 0;
     }
     //get partition table
-    if(partition != -1){
-        struct Par_Table par_table;
-        fseek(image_file, TABLE_ADDR + (partition * TABLE_SIZE), SEEK_SET);
-        fread(&par_table, sizeof(par_table), 1, image_file);
-        if(par_table.type != MINIX_MAGIC_NUM || par_table.bootind != BOOTABLE_MAGIC_NUM){
-            perror("Bad Magic Number. \n");
-            return EXIT_FAILURE;
-        }
-        //check for valid signature
-        //0x55 in byte 510
-        //0xAA in byte 511
-        printf("partable lfirst %d\n", par_table.lFirst);
-        printf("parsize: %d\n", par_table.size);
-        start = par_table.lFirst;
-        //check subpartion
-
+    struct Par_Table par_table;
+    fseek(image_file, TABLE_ADDR + (partition * TABLE_SIZE), SEEK_SET);
+    fread(&par_table, sizeof(par_table), 1, image_file);
+    if(par_table.type != MINIX_MAGIC_NUM || par_table.bootind != BOOTABLE_MAGIC_NUM){
+        perror("Bad Magic Number. \n");
+        return EXIT_FAILURE;
+    }
+    //check for valid signature
+    //0x55 in byte 510
+    //0xAA in byte 511
+    printf("partable lfirst %d\n", par_table.lFirst);
+    printf("parsize: %d\n", par_table.size);
+    start = par_table.lFirst;
+    //check subpartion
+    if(subpartition == -1){
+        return start;
     } 
+    struct Par_Table sub_par_table;
+    fseek(image_file, TABLE_ADDR + (partition * TABLE_SIZE) + start, SEEK_SET);
+    fread(&sub_par_table, sizeof(sub_par_table), 1, image_file);
+    if(par_table.type != MINIX_MAGIC_NUM || sub_par_table.bootind != BOOTABLE_MAGIC_NUM){
+        perror("Bad Magic Number. \n");
+        return EXIT_FAILURE;
+    }
+    return start;
 }
 
 void read_inode(FILE *image_file, struct Superblock superblock, uint32_t inode_offset, Dir_Entry dir_entry, char *path){
