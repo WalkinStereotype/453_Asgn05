@@ -56,21 +56,22 @@ int get_start(FILE *image_file, int partition, int subpartition){
     if(subpartition == -1){
         return start;
     } 
-    struct Boot_Block boot_block;
+    Par_Table par_tables[MAX_TABLES];
     fseek(image_file, 
-            start, SEEK_SET);
-    fread(&boot_block, sizeof(boot_block), 1, image_file);
-    printf("partable lfirst %d\n",boot_block.par_tables[subpartition].lFirst);
-    printf("parsize: %d\n", boot_block.par_tables[subpartition].size);
-    if(boot_block.par_tables[subpartition].type != MINIX_MAGIC_NUM ||
-     boot_block.par_tables[subpartition].bootind != BOOTABLE_MAGIC_NUM){
-        printf("Bad Magic Number. %d\n"
-                "Bad subPartition %d\n", 
-                boot_block.par_tables[subpartition].type, 
-                boot_block.par_tables[subpartition].bootind);
-        return EXIT_FAILURE;
-    }
-    start = boot_block.par_tables[subpartition].lFirst * SECTOR_SIZE;
+            start + TABLE_ADDR, SEEK_SET);
+    fread(par_tables, sizeof(par_table), 4, image_file);
+    printf("reading 0x%X", start + TABLE_ADDR);
+    printf("partable lfirst %d\n", par_tables[subpartition].lFirst);
+    printf("parsize: %d\n", par_tables[subpartition].size);
+    // if(par_tables[subpartition].type != MINIX_MAGIC_NUM ||
+    //  par_tables[subpartition].bootind != BOOTABLE_MAGIC_NUM){
+    //     printf("Bad Magic Number. %d\n"
+    //             "Bad BootAble_Magic_num %d\n", 
+    //             par_tables[subpartition].type, 
+    //             par_tables[subpartition].bootind);
+    //     return EXIT_FAILURE;
+    // }
+    start = par_tables[subpartition].lFirst * SECTOR_SIZE;
     return start;
 }
 
@@ -102,7 +103,7 @@ void read_inode(FILE *image_file, struct Superblock superblock,
         printFileDetails(sub_inode.mode, sub_inode.size, dir_entry.name);
     }else if(strcmp(next_dir, dir_entry.name) && strlen(rest_of_path) > 0){
         //directory on the path
-        // printf("case2\n");
+        printf("case2\n");
         get_directory_files(image_file, sub_inode, superblock,
                             rest_of_path, start);
 
@@ -177,10 +178,9 @@ int main(int argc, char *argv[]){
     int partition = -1;  
     int subpartition = -1;
     int start = 0;
+    int i;
     char *image = NULL;
-    char *src = NULL;
-
-    printf("Size of Boot_Block: %zu bytes\n", sizeof(Boot_Block));
+    char *path = NULL;
 
     // Parse flags and options
     while ((opt = getopt(argc, argv, "vp:s:")) != -1){
@@ -214,9 +214,9 @@ int main(int argc, char *argv[]){
     if (optind < argc) {
         image = argv[optind++];
         if (optind < argc){
-            src = argv[optind++];
+            path = argv[optind++];
         }else{
-            src = "";
+            path = "";
         }
     } else {
         printf("usage: minls [ -v ] [ -p num [ -s num ] ] imagefile [path ]\n"
@@ -235,10 +235,10 @@ int main(int argc, char *argv[]){
     }
 
     // Output parsed arguments for debugging
-    printf("Verbose mode: %s\n", verbose ? "ON" : "OFF");
-    printf("P argument: %d\n", partition);
-    printf("S argument: %d\n", subpartition);
-    printf("Image: %s\n", image);
+    // printf("Verbose mode: %s\n", verbose ? "ON" : "OFF");
+    // printf("P argument: %d\n", partition);
+    // printf("S argument: %d\n", subpartition);
+    // printf("Image: %s\n", image);
 
     // processing logic here
     //open file
@@ -248,11 +248,12 @@ int main(int argc, char *argv[]){
         return EXIT_FAILURE;
     }
 
-    get_start(image_file, partition, subpartition);
-    
+    start = get_start(image_file, partition, subpartition);
+    printf("----------start: 0x%X\n", start);
 
     //get superblock
     struct Superblock superblock;
+
     fseek(image_file, start + SUPERBLOCK_ADDR, SEEK_SET);
     fread(&superblock, sizeof(superblock), 1, image_file);
     // printf(superblock.magic);
@@ -266,8 +267,10 @@ int main(int argc, char *argv[]){
     struct Inode root;
     fseek(image_file, INODE_START_BLOCK(superblock) + start, SEEK_SET);
     fread(&root, sizeof(root), 1, image_file);
-    printf("src: %s", src);
-    get_directory_files(image_file, root, superblock, src, start);
+    // printf("path: %s", path);
+
+   
+    get_directory_files(image_file, root, superblock, path, start);
     return EXIT_SUCCESS;
 }
 
