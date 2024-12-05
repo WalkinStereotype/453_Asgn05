@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#include "dirHelp.h"
+#include "dirEntry.h"
 #include "inode.h"
 #include "parTable.h"
 #include "superblock.h"

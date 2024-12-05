@@ -3,12 +3,12 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include "dirEntry.h"
 #include "inode.h"
 #include "parTable.h"
 #include "superblock.h"
-#include "helpers.h"
 
 
 
@@ -161,10 +161,8 @@ int main(int argc, char *argv[]){
     int verbose = 0;
     int partition = -1;  
     int subpartition = -1;
-    int start = 0;
     char *image = NULL;
-    char *src = NULL;
-
+    char *dest = NULL;
 
     // Parse flags and options
     while ((opt = getopt(argc, argv, "vp:s:")) != -1){
@@ -197,10 +195,8 @@ int main(int argc, char *argv[]){
     // Remaining non-flag arguments
     if (optind < argc) {
         image = argv[optind++];
-        if (optind < argc){
-            src = argv[optind++];
-        }else{
-            src = "";
+        if (optind < argc) {
+            dest = argv[optind++];
         }
     } else {
         printf("usage: minls [ -v ] [ -p num [ -s num ] ] imagefile [path ]\n"
@@ -225,35 +221,24 @@ int main(int argc, char *argv[]){
     printf("Image: %s\n", image);
 
     // processing logic here
-    //open file
     FILE *image_file = fopen(image, "rb");
     if (!image_file){
         perror("Invalid file\n");
+        printf("Error code: %d\n", errno);
         return EXIT_FAILURE;
     }
-
-    get_start(image_file, partition, subpartition);
-    
-
-    //get superblock
     struct Superblock superblock;
-    fseek(image_file, start + SUPERBLOCK_ADDR, SEEK_SET);
+    fseek(image_file, SUPERBLOCK_ADDR, SEEK_SET);
     fread(&superblock, sizeof(superblock), 1, image_file);
     // printf(superblock.magic);
     if (superblock.magic != MINIX_MAGIC){
-        printf("Invalid superblock magic number\n"
-                "This doesn't look like a MINUX filesystem.\n");
+        printf("Invalid superblock magic number");
         return EXIT_FAILURE;
     }
     
+    printf("valid");
+    
 
-    //get root inode
-    //may only work on 0 partitions
-    struct Inode root;
-    fseek(image_file, INODE_START_BLOCK(superblock), SEEK_SET);
-    fread(&root, sizeof(root), 1, image_file);
-    printf("src: %s", src);
-    get_directory_files(image_file, root, superblock, src);
     return EXIT_SUCCESS;
 }
 
