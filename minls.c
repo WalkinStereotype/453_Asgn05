@@ -28,7 +28,8 @@ int isValidPartition(char *num){
     return 1;
 }
 
-/*takes in partition and subpartion number and returns the offset to the start of the used partition*/
+/*takes in partition and subpartion number and returns the offset to the start
+ of the used partition*/
 int get_start(FILE *image_file, int partition, int subpartition){
     int start;
     if(partition == -1){
@@ -36,10 +37,12 @@ int get_start(FILE *image_file, int partition, int subpartition){
     }
     //get partition table
     struct Par_Table par_table;
-    fseek(image_file, TABLE_ADDR + (partition * TABLE_SIZE), SEEK_SET);
+    fseek(image_file, TABLE_ADDR + (partition * sizeof(par_table)), SEEK_SET);
     fread(&par_table, sizeof(par_table), 1, image_file);
-    if(par_table.type != MINIX_MAGIC_NUM || par_table.bootind != BOOTABLE_MAGIC_NUM){
-        perror("Bad Magic Number. \n");
+    if(par_table.type != MINIX_MAGIC_NUM ||
+     par_table.bootind != BOOTABLE_MAGIC_NUM){
+        perror("Bad Magic Number. \n"
+               "Bad Partition\n");
         return EXIT_FAILURE;
     }
     //check for valid signature
@@ -47,22 +50,33 @@ int get_start(FILE *image_file, int partition, int subpartition){
     //0xAA in byte 511
     printf("partable lfirst %d\n", par_table.lFirst);
     printf("parsize: %d\n", par_table.size);
-    start = par_table.lFirst;
+    start = par_table.lFirst * SECTOR_SIZE;
+    printf("start: 0x%X\n", start);
     //check subpartion
     if(subpartition == -1){
         return start;
     } 
-    struct Par_Table sub_par_table;
-    fseek(image_file, TABLE_ADDR + (partition * TABLE_SIZE) + start, SEEK_SET);
-    fread(&sub_par_table, sizeof(sub_par_table), 1, image_file);
-    if(par_table.type != MINIX_MAGIC_NUM || sub_par_table.bootind != BOOTABLE_MAGIC_NUM){
-        perror("Bad Magic Number. \n");
+    struct Boot_Block boot_block;
+    fseek(image_file, 
+            start, SEEK_SET);
+    fread(&boot_block, sizeof(boot_block), 1, image_file);
+    printf("partable lfirst %d\n",boot_block.par_tables[subpartition].lFirst);
+    printf("parsize: %d\n", boot_block.par_tables[subpartition].size);
+    if(boot_block.par_tables[subpartition].type != MINIX_MAGIC_NUM ||
+     boot_block.par_tables[subpartition].bootind != BOOTABLE_MAGIC_NUM){
+        printf("Bad Magic Number. %d\n"
+                "Bad subPartition %d\n", 
+                boot_block.par_tables[subpartition].type, 
+                boot_block.par_tables[subpartition].bootind);
         return EXIT_FAILURE;
     }
+    start = boot_block.par_tables[subpartition].lFirst * SECTOR_SIZE;
     return start;
 }
 
-void read_inode(FILE *image_file, struct Superblock superblock, uint32_t inode_offset, Dir_Entry dir_entry, char *path){
+void read_inode(FILE *image_file, struct Superblock superblock, 
+                uint32_t inode_offset, Dir_Entry dir_entry,
+                char *path, int start){
     struct Inode sub_inode;
     char *rest_of_path = malloc(64);
     char *next_dir = malloc(64);
@@ -81,7 +95,7 @@ void read_inode(FILE *image_file, struct Superblock superblock, uint32_t inode_o
     // printf("nextdir: %s\n", next_dir);
     // printf("rest: %s\n", rest_of_path);
     
-    fseek(image_file, inode_offset, SEEK_SET);
+    fseek(image_file, inode_offset + start, SEEK_SET);
     fread(&sub_inode, sizeof(sub_inode), 1, image_file);
     if(path == ""){
         // printf("case1\n");
@@ -89,22 +103,22 @@ void read_inode(FILE *image_file, struct Superblock superblock, uint32_t inode_o
     }else if(strcmp(next_dir, dir_entry.name) && strlen(rest_of_path) > 0){
         //directory on the path
         // printf("case2\n");
-        get_directory_files(image_file, sub_inode, superblock, rest_of_path);
+        get_directory_files(image_file, sub_inode, superblock,
+                            rest_of_path, start);
 
     }else if(strcmp(next_dir, dir_entry.name) && strlen(rest_of_path) == 0){
         // printf("case3\n");
-        get_directory_files(image_file, sub_inode, superblock, "");
+        get_directory_files(image_file, sub_inode, superblock, "", start);
     }else{
         // printf("case4");
-        // printf("direntry name: %s\nnext_dir: %s\n", dir_entry.name, next_dir);
-        // printf("len1 %d\nlen2 %d\n", strlen(next_dir), strlen(dir_entry.name));
     }
 
 }
 
 /* gets the files that a directory contains
    enable printing by setting printing to 1/ON */
-void get_directory_files(FILE *image_file, struct Inode inode, struct Superblock superblock, char *path){
+void get_directory_files(FILE *image_file, struct Inode inode,
+         struct Superblock superblock, char *path, int start){
     int i, j;
     uint32_t zone_number;
     uint32_t zone_offset;
@@ -127,7 +141,7 @@ void get_directory_files(FILE *image_file, struct Inode inode, struct Superblock
         zone_size = superblock.blocksize << superblock.log_zone_size;
         zone_offset = (zone_number *  zone_size);
         // printf("superblcok first data: %d\n\n", superblock.firstdata);
-        fseek(image_file, zone_offset, SEEK_SET);
+        fseek(image_file, zone_offset + start, SEEK_SET);
 
         struct Dir_Entry dir_entry;
         // printf("inode size: %d\n", inode.size);
@@ -148,7 +162,8 @@ void get_directory_files(FILE *image_file, struct Inode inode, struct Superblock
             inode_start = INODE_START_BLOCK(superblock);
             inode_offset = ((dir_entry.inode - 1) * INODE_SIZE) + inode_start;
             //read inode
-            read_inode(image_file, superblock, inode_offset, dir_entry, path);
+            read_inode(image_file, superblock, inode_offset,
+             dir_entry, path, start);
         }
     }
 }
@@ -165,6 +180,7 @@ int main(int argc, char *argv[]){
     char *image = NULL;
     char *src = NULL;
 
+    printf("Size of Boot_Block: %zu bytes\n", sizeof(Boot_Block));
 
     // Parse flags and options
     while ((opt = getopt(argc, argv, "vp:s:")) != -1){
@@ -204,11 +220,11 @@ int main(int argc, char *argv[]){
         }
     } else {
         printf("usage: minls [ -v ] [ -p num [ -s num ] ] imagefile [path ]\n"
-                "Options:\n"
-                "-p part --- select partition for filesystem (default: none)\n"
-                "-s sub --- select subpartition for filesystem (default: none)\n"
-                "-h help --- print usage information and exit\n"
-                "-v verbose --- increase verbosity level\n");
+            "Options:\n"
+            "-p part --- select partition for filesystem (default: none)\n"
+            "-s sub --- select subpartition for filesystem (default: none)\n"
+            "-h help --- print usage information and exit\n"
+            "-v verbose --- increase verbosity level\n");
         return EXIT_FAILURE;
     }
 
@@ -245,15 +261,13 @@ int main(int argc, char *argv[]){
                 "This doesn't look like a MINUX filesystem.\n");
         return EXIT_FAILURE;
     }
-    
-
     //get root inode
     //may only work on 0 partitions
     struct Inode root;
-    fseek(image_file, INODE_START_BLOCK(superblock), SEEK_SET);
+    fseek(image_file, INODE_START_BLOCK(superblock) + start, SEEK_SET);
     fread(&root, sizeof(root), 1, image_file);
     printf("src: %s", src);
-    get_directory_files(image_file, root, superblock, src);
+    get_directory_files(image_file, root, superblock, src, start);
     return EXIT_SUCCESS;
 }
 
